@@ -1,4 +1,13 @@
-# Android app V1
+# MARS Android app V1
+
+## Directory structure
+
+- app\src\main\java\com\example\camerademo1 -- contains Android app code
+- app\src\main\assets -- contains models and labels
+- app\src\main\res\layout -- contains UI layout
+- app\src\main\AndroidManifest.xml -- contains permissions
+- app.py - used for generating client ML models
+
 
 ## Installation
 - Android studio: https://developer.android.com/studio 
