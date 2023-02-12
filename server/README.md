@@ -20,6 +20,14 @@ selection of communication protocols, message transcoding, and inference process
 - server/stream/threads/implementations/pytorch - a JPEG over TCP Stream image classifier using Pytorch based video inference model using Cuda with C++ torch native API and mobilenet-v3 model to classify the images and return back the labeled imaged.
 - server/test/testclient.cpp - contains a simple test client to test the TCP based image processing
 
+## Installation
+- Linux X86
+- Nvidia GPU
+- CMAke https://cmake.org/
+- CUDA https://developer.nvidia.com/cuda-downloads
+- NVcc
+- Torch https://pytorch.org/ (c++, CUDA 11.6)
+
 ## How to build    
 ```
 mkdir build
