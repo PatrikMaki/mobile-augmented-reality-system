@@ -58,22 +58,25 @@ int ControlProtocol(int (*callback)(const char*, char*))
         exit(EXIT_FAILURE);
     }
     printf("ControlProtocol: new connection\n");
+    /*
+    do while loops to handle messages from the client.
+    */
     do {
         hexread = read(new_socket, hexbuffer, 4);
         if(hexread != 4) break;
         length = strtol(hexbuffer, NULL, 16);
-	if (length > 1024) {
+	    if (length > 1024) {
             printf("ERROR: Too large control message, closing connection\n");
-	    break;
-	}
+	        break;
+	    }
         int t_length = length;
         char *p = buffer;
         do {
             valread = read(new_socket, p, length);
             printf("ControlProtocol read valread %d\n",valread);
             if(valread < 0) break;
-	    length -= valread;
-	    p += valread;
+	        length -= valread;
+	        p += valread;
         } while (length > 0);
         p[length] = 0;
         printf("ControlProtocol received message length: %d, message: %s\n", t_length, buffer);
