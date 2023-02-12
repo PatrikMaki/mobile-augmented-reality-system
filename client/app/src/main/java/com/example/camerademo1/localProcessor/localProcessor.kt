@@ -14,6 +14,7 @@ fun loadLabels(filePath: String): Array<String> {
     File(filePath).forEachLine {list.add(it)}
     return list.toTypedArray()
 }
+
 fun drawTextToBitmap(
     bitmapin: Bitmap,
     gText: String
@@ -46,11 +47,14 @@ fun drawTextToBitmap(
     canvas.drawText(gText, x.toFloat(), y.toFloat(), paint)
     return bitmap
 }
-class LocalProcessor (callback: () -> Unit): Thread(){
+
+/*
+Class responsible for image processing locally
+ */
+class LocalProcessor (): Thread(){
     //queue for images,
     //model preparation
     //inference
-    var callback = callback
     var queue = LinkedBlockingDeque<Frame>()
     var queueDone = LinkedBlockingDeque<Frame>()
     // loading serialized torchscript module from packaged into app android asset model.pt,
@@ -59,6 +63,7 @@ class LocalProcessor (callback: () -> Unit): Thread(){
     // app/src/model/assets/model.pt
     private lateinit var  module: Module
     private lateinit var labels: Array<String>
+
     fun loadModel(path: String, labelPath: String) {
         module = LiteModuleLoader.load(path)
         labels = loadLabels(labelPath)
@@ -70,6 +75,12 @@ class LocalProcessor (callback: () -> Unit): Thread(){
     fun enqueue(buf: Frame) {
         queue.addFirst(buf)
     }
+    /*
+    Thread loop
+    - takes frame from queue
+    - processes them
+    - enqueues processed frames
+     */
     override fun run() {
         while (true) {
             val a = queue.takeLast()
@@ -86,13 +97,18 @@ class LocalProcessor (callback: () -> Unit): Thread(){
             queueDone.addFirst(frame)
         }
     }
+
     fun receive(): Frame {
         return queueDone.takeLast()
     }
-    private fun inference(img: ByteArray): Bitmap? {
-        //img[400] = 254.toByte()
-        // preparing input tensor
 
+    /*
+    Uses the ML model
+    to do image image processing.
+    Takes best result from labels,
+    and draws text on the image using a helper function.
+     */
+    private fun inference(img: ByteArray): Bitmap? {
         // preparing input tensor
         val bitmap = BitmapFactory.decodeByteArray(img, 0, img.size)
         val inputTensor = TensorImageUtils.bitmapToFloat32Tensor(
@@ -103,16 +119,10 @@ class LocalProcessor (callback: () -> Unit): Thread(){
         )
 
         // running the model
-
-        // running the model
         val outputTensor = module.forward(IValue.from(inputTensor)).toTensor()
 
         // getting tensor content as java array of floats
-
-        // getting tensor content as java array of floats
         val scores = outputTensor.dataAsFloatArray
-
-        // searching for the index with maximum score
 
         // searching for the index with maximum score
         var maxScore = -Float.MAX_VALUE

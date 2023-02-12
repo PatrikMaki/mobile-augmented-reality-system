@@ -1,12 +1,10 @@
-import java.net.ServerSocket
 import java.net.Socket
-import java.io.OutputStream
-import java.io.InputStream
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.io.PrintWriter
-import java.util.concurrent.LinkedBlockingDeque
 
+/*
+Class, which communicates with the server's control protocol.
+ */
 class ControlProtocol(server: String, port: Int){
     private lateinit var callback : (String)->String
     private val client = Socket(server, port)
@@ -21,7 +19,12 @@ class ControlProtocol(server: String, port: Int){
     private var valread : Int = 0
     private var response : String = ""
 
-    fun rec() {
+    /*
+    Control Protocols Receive loop:
+    - receives response messages from server
+    - forwards the messages to the main code
+     */
+    fun rec() { //receive loop, called from client
         do {
             hexread = input.read(hexbuffer, 0, 4)
             if(hexread != 4) break
@@ -36,12 +39,13 @@ class ControlProtocol(server: String, port: Int){
 
             }while (length>0)
             response = callback(buffer.joinToString(separator = "",limit = p).replace("...",""))
-            //println("#DEBUG ControlProtocolV1: response:$response");
         } while(runningControlGlobal)
     }
     fun setCallBack(callback: (String)->String) {
         this.callback = callback
     }
+
+    // Functions for sending messages to server:
     fun hello() { client.outputStream.write("0005Hello".toByteArray()) }
     fun test() { client.outputStream.write("000Ftest connection".toByteArray()) }
     //fun startx() { client.outputStream.write("001Dstart stream, with protocol x".toByteArray()) }
@@ -65,6 +69,6 @@ class ControlProtocol(server: String, port: Int){
     fun close() {
         client.outputStream.write("0010close connection".toByteArray())
         runningControlGlobal = false
-        //stopp control protocol thred
+        //stopp control protocol thread
     }
 }

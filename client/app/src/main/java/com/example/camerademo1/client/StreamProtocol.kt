@@ -6,7 +6,9 @@ import java.net.InetAddress
 import java.net.Socket
 import java.util.concurrent.LinkedBlockingDeque
 
-
+/*
+Interfaces for defining classes for stream sending and receiving.
+ */
 interface IstreamSend {
     fun send(n: Frame) //ByteArray
     fun stopp()
@@ -58,6 +60,7 @@ private class Start_stream_test1_send(val ip: String, val port: Int, val socket:
         }
     }
 }
+
 private class Start_stream_test1_receive(val stream_type: String, val socket: DatagramSocket): IstreamReceive, Thread() {
     var running = true
     init {
@@ -102,6 +105,10 @@ private class Start_stream_test1_receive(val stream_type: String, val socket: Da
     }
 }
 
+/*
+Start stream thread using TCP and JPG frames.
+Used in the current demo
+ */
 private class Start_stream_tcpjpg_send(val ip: String, val port: Int, val client: Socket): IstreamSend, Thread() {
     var queue = LinkedBlockingDeque<Frame>() //ByteArray
     var running = true
@@ -174,7 +181,7 @@ private fun helper(buffer: ByteArray) { //TODO: can be removed
     }).start()
 }
 
-private fun helpertxt(buffer: ByteArray) {
+private fun helpertxt(buffer: ByteArray) { //TODO: can be removed
     receivetimes += System.currentTimeMillis()
 
     Thread(Runnable{
@@ -183,6 +190,11 @@ private fun helpertxt(buffer: ByteArray) {
         println("apple${j}.jpg is $a")
     }).start()
 }
+
+/*
+Start stream thread using TCP and JPG frames.
+Used in the current demo
+ */
 private class Start_stream_tcpjpg_receive(val ip: String, val port: Int,val stream_type: String, val client: Socket): IstreamReceive, Thread() {
     private lateinit var callback : (String)->String
     var queue = LinkedBlockingDeque<Frame>() //ByteArray
@@ -262,25 +274,12 @@ private class Start_stream_tcpjpg_receive(val ip: String, val port: Int,val stre
         } while(running)
     }
 }
-/*
-private class Start_stream_type2(ip: String, port: Int, stream_params: Array<String>): Istream, Thread() {
-    var queue = LinkedBlockingDeque<ByteArray>()
-    override fun send() {
-        queue.addFirst(message)
-    }
-    override fun receive() {
-        pass
-    }
-    override fun stopp() {
 
-    }
-    fun run() {
-        while(running) {
-            queue.takeLast()
-        }
-    }
-}
-*/
+
+/*
+Main straming class
+- controls receiving and sending packets for different configs
+ */
 class StreamProtocol(ip: String, port: Int, config: String = "") {
     val stream_type: String = ""
     var stream_params: Array<String> = arrayOf<String>()
@@ -297,7 +296,7 @@ class StreamProtocol(ip: String, port: Int, config: String = "") {
             stream_send = Start_stream_test1_send(ip, port, socket)
             //val socket2 = DatagramSocket(port+1, InetAddress.getByName("192.168.1.20"))
             stream_receive = Start_stream_test1_receive(stream_type, socket)
-        } else if (config == "tcpjpg") {
+        } else if (config == "tcpjpg") { //used in demo
             val socket = Socket(ip, port)
             println("tcpjpg $ip $port $socket")
             stream_send = Start_stream_tcpjpg_send(ip, port, socket)
@@ -305,7 +304,7 @@ class StreamProtocol(ip: String, port: Int, config: String = "") {
             stream_receive = Start_stream_tcpjpg_receive(ip, port,stream_type, socket)
         }
 
-        /*else if (config=="receive rtp h264 decode h264 inference faceblur encode h264 send rtp") {
+        /*else if (config=="receive rtp h264 decode h264 inference faceblur encode h264 send rtp") { //TODO
                 val stream_type: String =  "type2"
                 val stream_params: Array<String> = config.split()
                 stream = Start_stream_type2(ip, port, stream_params)

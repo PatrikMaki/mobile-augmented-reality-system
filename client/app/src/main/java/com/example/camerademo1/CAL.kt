@@ -25,14 +25,22 @@ const val REQUEST_CODE_PERMISSIONS = 10
 
 var globalframeCounter: Long = 0
 
+/*
+Class for storing an image frame, with metadata
+ */
 class Frame() {
-    var frameCount: Long = 0
-    var timeStart: Long = 0
-    var timeEnd: Long = 0 //not mandatory
-    var processTime: Long = 0
-    lateinit var buffer: ByteArray
-    lateinit var bitmap: Bitmap
+    var frameCount: Long = 0 // increasing frame number
+    var timeStart: Long = 0 // frame capture time in milliseconds
+    var timeEnd: Long = 0 // not mandatory
+    var processTime: Long = 0 // inference process time in milliseconds
+    lateinit var buffer: ByteArray // storing the image
+    lateinit var bitmap: Bitmap // storing the image in displayable format
 }
+
+/*
+Camera Abstraction Layer
+- makes using the Android camera2 API easier
+ */
 class CAL() {
     //val WIDTH = 240
     //val HEIGHT = 180
@@ -153,160 +161,6 @@ class CAL() {
 
         var streaming = false
         var sentframes = 0
-/*
-        val imgInfo =
-            ImageInfo(WIDTH, HEIGHT, 16, false, true, false)
-
-        cameraManager.openCamera(depthCameraId, object : CameraDevice.StateCallback() {
-            override fun onDisconnected(device: CameraDevice) {
-                device.close()
-            }
-            override fun onError(device: CameraDevice, error: Int) {
-                onDisconnected(device)
-            }
-
-            override fun onOpened(cameraDevice: CameraDevice) {
-//              ************************************************* RAW Image Reader *************************************************
-                val depthPreviewReader = ImageReader.newInstance(WIDTH, HEIGHT, ImageFormat.DEPTH16, 5)
-                depthPreviewReader.setOnImageAvailableListener({ reader ->
-                    val image = reader.acquireNextImage()
-
-                    val w = image.width
-                    val h = image.height
-
-//                  Create 8 bit grayscale depth bitmap
-//                    val buffer: ByteBuffer = image.planes[0].buffer
-//                    val bytes = ByteArray(buffer.remaining())
-//                    buffer[bytes]
-
-//                    val tempDepth = Base64.getEncoder().encode(bytes)
-//                    val start = System.currentTimeMillis()
-//                    val bitmapDepth = readDepthBitmap(image)
-//                    Log.i(sentframes.toString(), (System.currentTimeMillis() - start).toString())
-
-                    val output = readDepthValues(image)
-
-//                  Read depth range and confidence values
-//                    val bitmapDepth = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-//                    val bitmapConfidence = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-//
-//                    var offset = 0
-//                    for (y in 0 until h) {
-//                        for (x in 0 until w) {
-//
-//                            val colorDepth = (output[offset + x] / DEPTH_RANGE_FILTER * 255).toInt()
-//                            bitmapDepth.setPixel(x, y, Color.rgb(colorDepth, colorDepth, colorDepth))
-//
-//                            val colorConf = (confidenceValues[offset + x] * 255).toInt()
-//                            bitmapConfidence.setPixel(x, y, Color.rgb(colorConf, colorConf, 0))
-//                        }
-//                        offset += w
-//                    }
-
-
-
-                    if (streaming) {
-                        try {
-//                      Write 16 bit depth PNG
-                            Thread(Runnable {
-                                var byteArrayOutputStream = ByteArrayOutputStream(w * h)
-
-                                val pngWriter = PngWriter(byteArrayOutputStream, imgInfo)
-
-                                var offset = 0
-                                for (i in 0 until imgInfo.rows) {
-                                    val imgLine = ImageLineInt(imgInfo)
-
-                                    for (j in 0 until imgInfo.cols) {
-                                        imgLine.scanline[j] = output[offset + j].toInt()
-                                    }
-                                    offset += imgInfo.cols
-                                    pngWriter.writeRow(imgLine)
-                                }
-                                pngWriter.end()
-
-                                sentframes++
-                                val size = byteArrayOutputStream.toByteArray()
-                                val depth16 = Base64.getEncoder().encode(byteArrayOutputStream.toByteArray())
-
-                                val obj = JSONObject()
-                                obj.put("rgb", rgbBytes)
-                                obj.put("depth", depth16)
-                                obj.put("frame", sentframes)
-                                obj.put("time", System.currentTimeMillis().toString())
-
-
-                                Log.i("", "---------" + size.count().toString() + " " + depth16.count().toString())
-
-                                socket.emit("rgbd", obj)
-
-//                                socket.emit("starting", System.currentTimeMillis().toString())
-//                                socket.on("pong starting",onPong)
-                            }).start()
-
-                        } catch (e: IOException) {
-                            e.printStackTrace()
-                        } finally {
-                            image.close()
-                        }
-                    }
-                    else
-                        image.close()
-
-//                    if (streaming) {
-//                        Thread(Runnable {
-//                            try {
-
-//                                //webp part
-//                                val wbaos = ByteArrayOutputStream()
-//                                bitmapDepth.compress(Bitmap.CompressFormat.WEBP, 100, wbaos)
-//                                val wdepthBytes = Base64.getEncoder().encode(wbaos.toByteArray())
-//
-//
-//                                val obj = JSONObject()
-//                                obj.put("rgb", rgbBytes)
-//                                obj.put("depth", wdepthBytes)
-//                                obj.put("frame", sentframes++)
-//
-//                                socket.emit("rgbd", obj)
-//                            }
-//                            catch (e: URISyntaxException) {
-//                                Log.i("ex", e.toString())
-//                            }
-//                        }).start()
-//                    }
-
-//                    renderBitmapToTextureView(bitmapDepth, textureViewDepth)
-
-                }, null)
-
-
-                val captureCallback: CameraCaptureSession.StateCallback = object : CameraCaptureSession.StateCallback() {
-                    override fun onConfigureFailed(session: CameraCaptureSession) {}
-
-                    override fun onConfigured(session: CameraCaptureSession) {
-//                        depthCameraCaptureSession = session
-
-                        // preview
-                        val previewRequestBuilder =
-                            cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-                        previewRequestBuilder.addTarget(depthPreviewReader.surface)
-
-                        session.setRepeatingRequest(
-                            previewRequestBuilder.build(),
-                            object : CameraCaptureSession.CaptureCallback() {},
-                            Handler { true }
-                        )
-                    }
-                }
-                cameraDevice.createCaptureSession(
-                    mutableListOf(depthPreviewReader.surface),
-                    captureCallback,
-                    Handler { true })
-
-            }
-        }, Handler { true })
-*/
 
         cameraManager.openCamera(defaultCameraId, object : CameraDevice.StateCallback() {
             override fun onDisconnected(device: CameraDevice) {
@@ -323,20 +177,6 @@ class CAL() {
                     val image = reader.acquireNextImage()
                     val buffer: ByteBuffer = image.planes[0].buffer
                     val bytes = ByteArray(buffer.remaining())
-                    //buffer[bytes] //does nothing
-                    /*
-                    var output: FileOutputStream? = null
-
-                    try {
-                        val file = File(externalMediaDirs.first(), "${currentFileName}.jpg")
-
-                        output = FileOutputStream(file)
-                        output.write(bytes)
-                    } catch (e: IOException) {
-                        e.printStackTrace()
-                    } finally {
-                        image.close()
-                    }*/ //we don't save to file here
                 }, null)
 
                 val jpegStreamReader = ImageReader.newInstance(WIDTH, HEIGHT, ImageFormat.JPEG, 1)
@@ -358,9 +198,6 @@ class CAL() {
                     frame.frameCount = globalframeCounter++
                     frame.buffer = bytes
                     myCallback.invoke(frame)
-                    //myCallback.invoke(bytes)
-
-                    //rgbBytes = Base64.getEncoder().encode(bytes)
 
                     image.close()
                 }, null)
@@ -396,41 +233,6 @@ class CAL() {
                     Handler { true })
             }
         }, Handler { true })
-
-        //done elsewhere
-        /*
-        activity.findViewById<Button>(R.id.stream_button).setOnClickListener {
-            currentFileName = System.currentTimeMillis().toString()
-
-            val socket
-            if (socket.connected()) {
-                txtSocket.text = "Connected"
-
-                streaming = !streaming
-                if (streaming) {
-                    startTime = System.currentTimeMillis()
-                    socket.emit("starting", System.currentTimeMillis().toString())
-                    socket.on("pong starting", onPong)
-
-                    txtStreaming.text = "Streaming"
-                    Toast.makeText(
-                        context,
-                        "Streaming",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                else
-                    txtStreaming.text = "Not streaming"
-            }
-            else {
-                txtSocket.text = "Not connected"
-                Toast.makeText(
-                    context,
-                    "Not connected",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }*/
     }
 
     private fun initCameraIds(cameraManager: CameraManager, lensFacing: Int) {

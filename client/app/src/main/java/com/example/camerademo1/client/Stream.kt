@@ -1,6 +1,5 @@
 //OLD!
-//OLD!
-//OLD!
+//Not used in the current demo
 //can be removed
 import java.net.DatagramSocket
 import java.net.DatagramPacket

@@ -21,6 +21,16 @@ var runningEdge = false
 //val globalIP = "192.168.1.33"
 var globalIP = "172.18.149.219" //TODO: can be removed
 
+/*
+Class that provides methods to communicate with
+the server.
+Takes the IP address of the server as a construction
+parameter.
+Also takes a callback as an instruction parameter
+that is used to initiate the stream.
+
+This should provide the only public interfaces inside the client package
+ */
 open class Client(ip: String , callback: () -> Unit): Thread() {
     var callbackStreamReady = callback
     var queue = LinkedBlockingDeque<String>()
@@ -29,14 +39,12 @@ open class Client(ip: String , callback: () -> Unit): Thread() {
 
     //Thread:
     private lateinit var receiveControlThread: Thread
-    private lateinit var streamThread: Thread
-
 
     init {
         globalIP = ip;
     }
 
-    private fun handleRequest(request: String): String {
+    private fun handleRequest(request: String): String { //currently only one configuration
         if("tcpjpg" == request) {
             runningStreamGlobal = true
             stream = StreamProtocol(globalIP,4321, "tcpjpg")
@@ -47,7 +55,7 @@ open class Client(ip: String , callback: () -> Unit): Thread() {
         }
     }
 
-    fun changeIP(ip: String) {
+    fun changeIP(ip: String) { //TODO: fix
         globalIP = ip;
     }
     private fun connect() { //could return something //thread
@@ -61,22 +69,20 @@ open class Client(ip: String , callback: () -> Unit): Thread() {
     private fun startStream() { //thread
         runningEdge = true
         control.start("tcpjpg classify") //async response comes from server goes to handleRequest
-        Thread.sleep(20)
         this.callbackStreamReady = callbackStreamReady
     }
 
     fun send(msg: Frame) {//ByteArray
-        //stream.send(msg) //send image with time stamp
         stream.send(msg)
     }
 
     fun receive(): Frame {
         return stream.receive() //receive image with time stamp
     }
-    fun getQin(): Int {
+    fun getQin(): Int { //not used anymore
         return stream.getQin()
     }
-    fun getQout(): Int {
+    fun getQout(): Int { //not used anymore
         return stream.getQout()
     }
     private fun stopStream() { //thread
@@ -88,6 +94,9 @@ open class Client(ip: String , callback: () -> Unit): Thread() {
         control.close() //not tested
         runningControlGlobal = false //stops the thread
     }
+    /*
+    Takes requests from main program
+     */
     override fun run() {
         while(true) {
             val request = queue.takeLast()
@@ -99,6 +108,10 @@ open class Client(ip: String , callback: () -> Unit): Thread() {
             }
         }
     }
+    /*
+    as the client runs in a separate thread, operations
+    have to be queued.
+    */
     fun attempt(request: String) {
         queue.addFirst(request)
     }

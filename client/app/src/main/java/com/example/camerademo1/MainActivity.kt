@@ -24,28 +24,33 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 
-
+/*
+Main class of the MARS Android application.
+Runs the main UI thread, so Blocking this thread is
+not allowed!
+ */
 class MainActivity : AppCompatActivity() {
 
-    private val camera = CAL()
-    private val client = Client("84.248.82.180" ) { //change this to correct value, TODO: change to var
+    private val camera = CAL() //Camera Abstraction Layer
+    private val client = Client("84.248.82.180" ) { //change this to correct value, TODO: change to var and update doc
         textureViewColor.post {
             camera.startCameraSession(this, textureViewColor) {
                     image->callbackClientSender(image)
             }
         }
     }
-    private val localProcessor = LocalProcessor() {}
-    lateinit var textureViewColor: SurfaceView
-    lateinit var textureViewColor2: TextureView
-    lateinit var textOutput: TextView
-    lateinit var textOutput2: TextView
-    lateinit var textInput: EditText
+    private val localProcessor = LocalProcessor()
+    lateinit var textureViewColor: SurfaceView // live camera view
+    lateinit var textureViewColor2: TextureView // inference video view
+    lateinit var textOutput: TextView // statistics output
+    lateinit var textOutput2: TextView // average statistics output
+    lateinit var textInput: EditText //TODO: use for IP input
+    // resolutions buttons:
     lateinit var reso1: RadioButton
     lateinit var reso2: RadioButton
     lateinit var reso3: RadioButton
     lateinit var reso4: RadioButton
-    lateinit var ipButton: Button
+    lateinit var ipButton: Button //TODO: IP Button
     private lateinit var matrix: Matrix
 
     @SuppressLint("ResourceType")
@@ -55,21 +60,19 @@ class MainActivity : AppCompatActivity() {
         // Request camera permissions
         if (allPermissionsGranted()) {
             try {
-                assetFilePath(this, "model.pt")?.let { assetFilePath(this, "labels.txt")?.let { it1 ->
-                    localProcessor.loadModel(it,
-                        it1
-                    )
-                } }
+                /*
+                 Load model file for inference, if they are found.
+                 TODO: Add loading file from a remote DB server!
+                 */
+                assetFilePath(this, "model.pt")?.let {
+                    assetFilePath(this, "labels.txt")?.let {
+                            it1 -> localProcessor.loadModel(it, it1)
+                    }
+                }
             } catch (e: Exception) {
                 Log.e("PytorchHelloWorld", "Error reading assets", e);
                 finish();
             }
-            /*
-            Thread(Runnable{
-                println("\n\n\n\nMODEL LOADING")
-                localProcessor.loadModel(assetFilePath(this, "resnet-pretrained-model.pt"), assetFilePath(this, "resnet-labels.txt"))
-                println("MODEL LOADED\n\n\n\n\n")
-            }).start()*/
             client.start()
             localProcessor.start()
             textureViewColor = findViewById<SurfaceView>(R.id.textureViewColor)
@@ -96,7 +99,8 @@ class MainActivity : AppCompatActivity() {
             reso4.setOnClickListener {
                 changeResolution(1920, 1080);
             }
-/*
+            /*
+            TODO:
             ipButton.setOnClickListener{
                 client.changeIP(textInput.text.toString())
                 client.disconnect()
@@ -117,6 +121,7 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { stopStream() }
         }
     }
+    // Application state
     enum class StateEnum {
         StateIdle,
         StatePreview,
@@ -133,12 +138,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    //Stops stream and restarts preview.
     private fun  stopStream() {
         camera.stopStream()
         textureViewColor.post { camera.startPreview(this, textureViewColor) }
         state = StateEnum.StatePreview
     }
 
+    //Stops preview and starts stream.
     private fun  startStream() {
         camera.stopPreview()
         client.attempt("connect")
@@ -146,10 +153,12 @@ class MainActivity : AppCompatActivity() {
         showVideo()
         state = StateEnum.StateStream
     }
+
+    //Stops preview and starts local mode.
     private fun startLocalStream() {
         println("before stoppping stream or preview")
         camera.stopStream() //?
-        camera.stopPreview() //?
+        camera.stopPreview()
         textureViewColor.post {
             camera.startCameraSession(this, textureViewColor) {
                     image->callbackLocal(image)
@@ -158,15 +167,20 @@ class MainActivity : AppCompatActivity() {
         showVideoLocalProcessing()
     }
 
+    /*
+    Sends the JPG images from the Camera to the server with TCP.
+     */
     private fun callbackClientSender(receivedmsg: Frame) {
-        //println(receivedmsg.size)
-        //client.send(receivedmsg.buffer)
         client.send(receivedmsg)
-
     }
+
+    /*
+    Sends the JPG images from the camera to a local queue.
+     */
     private fun callbackLocal(receivedmsg: Frame) {
         localProcessor.enqueue(receivedmsg)
     }
+
     //OBSOLETE:
     private fun updateTransform(textureView: View, rotationDegrees: Float) : Matrix {
         val matrix = Matrix()
@@ -198,6 +212,12 @@ class MainActivity : AppCompatActivity() {
 
         return matrix
     }
+
+    /*
+    Starts Thread for receiving, processing and showing
+    locally processed frames.
+    Also, displays statistics.
+     */
     private fun showVideoLocalProcessing() {
         Thread.sleep(1000)
         Thread(Runnable{
@@ -210,11 +230,8 @@ class MainActivity : AppCompatActivity() {
             val testStartTime: Long = System.currentTimeMillis()
             while(true) {
                 val image = localProcessor.receive()
-                //val image = BitmapFactory.decodeByteArray(imageBuf, 0, imageBuf.size)
                 val canvas = textureViewColor2.lockCanvas()
                 if (canvas != null) {
-                    //println("resolution:${image.bitmap.height}x${image.bitmap.width}")
-                    //canvas.drawBitmap(image, updateTransform(textureViewColor2, 90f), null)
                     canvas.drawBitmap(image.bitmap,updateTransform2(textureViewColor2, 90f), null)
                     textureViewColor2.unlockCanvasAndPost(canvas)
                 }
@@ -227,13 +244,8 @@ class MainActivity : AppCompatActivity() {
                 if (i==30) {
                     i=0
                     val time2 = now
-                    //println("Local processing(frame, totaltime, inference time, fps):${image.frameCount}, ${time2-image.timeStart}, ${image.processTime}, ${30.0*1000/(time2-time)}")
                     println("local Q=${localProcessor.getQueueLength()} #${image.frameCount} t=${time2-image.timeStart} pt=${image.processTime} fps=${String.format("%.2f", (30.0*1000/(time2-time)))}")
                     textOutput.text = "local Q=${localProcessor.getQueueLength()} #${image.frameCount} t=${time2-image.timeStart} pt=${image.processTime} fps=${String.format("%.2f", (30.0*1000/(time2-time)))}"
-                    /*
-                    textOutput.text = String.format("local #%d t=%d pt=%d fps=%.1f",
-                        image.frameCount, time2-image.timeStart, image.processTime, 30.0*1000/(time2-time))
-                     */
                     time = time2
                 }
                 if (now-displayTime > displayInterval){
@@ -244,6 +256,12 @@ class MainActivity : AppCompatActivity() {
             }
         }).start()
     }
+
+    /*
+    Starts Thread for receiving, processing and showing
+    remotely processed frames.
+    Also, displays statistics.
+     */
     private fun showVideo() {
         Thread.sleep(1000)
         Thread(Runnable{
@@ -259,7 +277,6 @@ class MainActivity : AppCompatActivity() {
                 val image = BitmapFactory.decodeByteArray(imageBuf.buffer, 0, imageBuf.buffer.size)
                 val canvas = textureViewColor2.lockCanvas()
                 if (canvas != null) {
-                    //println("resolution:${image.height}x${image.width}")
                     canvas.drawBitmap(image, updateTransform2(textureViewColor2, 90f), null)
                     textureViewColor2.unlockCanvasAndPost(canvas)
                 }
@@ -271,14 +288,8 @@ class MainActivity : AppCompatActivity() {
                 if (i==30) {
                     i=0
                     val time2 = System.currentTimeMillis()
-                    //println("Remote processing(frame, totaltime, inference time, fps):${imageBuf.frameCount}, ${time2-imageBuf.timeStart}, ${imageBuf.processTime}, ${30.0*1000/(time2-time)}")
                     println("Remote Lag=${globalframeCounter-imageBuf.frameCount} #${imageBuf.frameCount} t=${time2-imageBuf.timeStart} pt=${imageBuf.processTime} fps=${String.format("%.2f", (30.0*1000/(time2-time)))}")
                     textOutput.text = "Remote Lag=${globalframeCounter-imageBuf.frameCount} #${imageBuf.frameCount} t=${time2-imageBuf.timeStart} pt=${imageBuf.processTime} fps=${String.format("%.2f", (30.0*1000/(time2-time)))}"
-
-                    /*
-                    textOutput.text = String.format("remote #%d t=%d pt=%d fps=%.1f",
-                        imageBuf.frameCount, time2-imageBuf.timeStart, imageBuf.processTime, 30.0*1000/(time2-time))
-                    */
                     time = time2
                 }
                 if (now-displayTime > displayInterval && imageBuf.frameCount>0){
